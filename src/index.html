@@ -1,32 +1,348 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>高中生物试卷智能阅卷助手（单文件版）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .thumb { cursor: pointer; transition: transform .15s ease; }
+    .thumb:hover { transform: translateY(-2px); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div class="max-w-5xl mx-auto p-4 md:p-8">
+    <header class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-2">
+        <span class="text-teal-600">AI 助教</span> 高中生物试卷智能阅卷助手（单文件）
+      </h1>
+      <p class="text-slate-500 mt-1">无需安装环境，直接在浏览器中使用。本页不会保存任何数据。</p>
+    </header>
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
-            <form class="row" id="greet-form">
-                <input id="inputValue" placeholder="Enter a something..." />
-            </form>
-            <div class="resultBox">
-                <span>result: </span>
-                <span id="result"></span>
+    <section class="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-3">1. 设置 Gemini API Key</h2>
+      <p class="text-sm text-slate-600 mb-3">仅用于当前浏览器会话。请勿在公共设备使用你的私密 Key。</p>
+      <div class="flex flex-col md:flex-row gap-3 items-start md:items-center">
+        <input id="apiKey" type="password" placeholder="粘贴你的 GEMINI_API_KEY"
+               class="w-full md:flex-1 px-3 py-2 border rounded-md border-slate-300 focus:ring-2 focus:ring-teal-500" />
+        <button id="btnSaveKey" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">保存 Key</button>
+        <button id="btnClearKey" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300">清除</button>
+      </div>
+      <p id="keyStatus" class="text-sm mt-2 text-slate-500">未设置</p>
+    </section>
+
+    <section class="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-3">2. 上传试卷（图片或 PDF）</h2>
+      <input id="fileInput" type="file" accept="image/*,application/pdf"
+             class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" />
+      <div id="pdfThumbs" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 hidden"></div>
+      <div id="imagePreviewWrap" class="mt-4 hidden">
+        <p class="text-sm text-slate-600 mb-2">已选择图片：</p>
+        <img id="imagePreview" class="max-h-64 rounded border" alt="预览" />
+      </div>
+      <div class="mt-4">
+        <button id="btnAnalyze" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-slate-400" disabled>识别主观题</button>
+        <span id="analyzeStatus" class="ml-3 text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <section id="questionsSection" class="bg-white rounded-lg shadow p-4 md:p-6 mb-6 hidden">
+      <h2 class="text-lg font-semibold mb-3">3. 题目与评分</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <h3 class="text-slate-700 font-semibold mb-2">题目列表</h3>
+          <ul id="questionList" class="space-y-2"></ul>
+        </div>
+        <div class="md:col-span-2">
+          <div id="questionDetail" class="border rounded-lg p-4 bg-slate-50 hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-xs text-slate-400 mt-10">
+      <p>提示：本页面直接在浏览器调用 Gemini 接口，需联网且你的 Key 需允许在浏览器使用（Referer/域名限制）。</p>
+    </footer>
+  </div>
+
+  <script type="module">
+    import { GoogleGenAI, Type } from 'https://esm.sh/@google/genai@0.14.0';
+    import * as pdfjs from 'https://esm.sh/pdfjs-dist@5.4.149/build/pdf.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@5.4.149/build/pdf.worker.mjs';
+
+    // DOM refs
+    const elApiKey = document.getElementById('apiKey');
+    const elBtnSaveKey = document.getElementById('btnSaveKey');
+    const elBtnClearKey = document.getElementById('btnClearKey');
+    const elKeyStatus = document.getElementById('keyStatus');
+    const elFile = document.getElementById('fileInput');
+    const elThumbs = document.getElementById('pdfThumbs');
+    const elImgWrap = document.getElementById('imagePreviewWrap');
+    const elImg = document.getElementById('imagePreview');
+    const elBtnAnalyze = document.getElementById('btnAnalyze');
+    const elAnalyzeStatus = document.getElementById('analyzeStatus');
+    const elQuestionsSection = document.getElementById('questionsSection');
+    const elQuestionList = document.getElementById('questionList');
+    const elQuestionDetail = document.getElementById('questionDetail');
+
+    let apiKey = localStorage.getItem('gemini_key') || '';
+    let selectedImageFile = null; // File chosen or rendered from PDF
+    let questions = [];
+
+    function updateKeyUI() {
+      if (apiKey) {
+        elKeyStatus.textContent = '已设置';
+        elKeyStatus.className = 'text-sm mt-2 text-teal-700';
+        elApiKey.value = '';
+      } else {
+        elKeyStatus.textContent = '未设置';
+        elKeyStatus.className = 'text-sm mt-2 text-slate-500';
+      }
+      elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
+    }
+
+    elBtnSaveKey.addEventListener('click', () => {
+      const v = elApiKey.value.trim();
+      if (!v) { alert('请输入有效的 API Key'); return; }
+      apiKey = v;
+      localStorage.setItem('gemini_key', apiKey);
+      updateKeyUI();
+    });
+    elBtnClearKey.addEventListener('click', () => {
+      apiKey = '';
+      localStorage.removeItem('gemini_key');
+      updateKeyUI();
+    });
+    updateKeyUI();
+
+    elFile.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      resetQuestions();
+      if (!file) return;
+      if (file.type === 'application/pdf') {
+        await handlePdf(file);
+      } else if (file.type.startsWith('image/')) {
+        selectedImageFile = file;
+        elImg.src = URL.createObjectURL(file);
+        elImgWrap.classList.remove('hidden');
+        elThumbs.classList.add('hidden');
+        elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
+      } else {
+        alert('请上传图片或 PDF 文件');
+      }
+    });
+
+    async function handlePdf(file) {
+      elAnalyzeStatus.textContent = '';
+      elThumbs.innerHTML = '';
+      elThumbs.classList.remove('hidden');
+      elImgWrap.classList.add('hidden');
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjs.getDocument(new Uint8Array(arrayBuffer)).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const card = document.createElement('div');
+        card.className = 'border rounded-md overflow-hidden thumb';
+        card.innerHTML = `
+          <img src="${dataUrl}" alt="第 ${i} 页" class="w-full block" />
+          <div class="p-2 text-center bg-slate-50 text-sm">第 ${i} 页</div>
+        `;
+        card.addEventListener('click', async () => {
+          elAnalyzeStatus.textContent = '正在提取高清页面...';
+          const bigViewport = page.getViewport({ scale: 2 });
+          const bigCanvas = document.createElement('canvas');
+          bigCanvas.width = bigViewport.width; bigCanvas.height = bigViewport.height;
+          const bigCtx = bigCanvas.getContext('2d');
+          await page.render({ canvasContext: bigCtx, viewport: bigViewport }).promise;
+          const blob = await new Promise(resolve => bigCanvas.toBlob(resolve, 'image/jpeg', 0.95));
+          selectedImageFile = new File([blob], `page_${i}.jpg`, { type: 'image/jpeg' });
+          elImg.src = URL.createObjectURL(selectedImageFile);
+          elImgWrap.classList.remove('hidden');
+          elAnalyzeStatus.textContent = '已选择高清页面，可开始识别。';
+          elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
+        });
+        elThumbs.appendChild(card);
+      }
+    }
+
+    function fileToPart(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result !== 'string') return reject(new Error('读取文件失败'));
+          const base64 = reader.result.split(',')[1] || '';
+          resolve({ inlineData: { data: base64, mimeType: file.type } });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function analyze() {
+      if (!apiKey || !selectedImageFile) return;
+      elAnalyzeStatus.textContent = '正在分析试卷...';
+      const ai = new GoogleGenAI({ apiKey });
+      const imagePart = await fileToPart(selectedImageFile);
+      const prompt = `You are an expert teaching assistant for high school biology. Identify ONLY the subjective questions from the provided image. Return JSON array with objects: questionNumber (number), title (string), questionText (string), fullScore (number).`;
+      const resp = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [ { role: 'user', parts: [ { text: prompt }, imagePart ] } ],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                questionNumber: { type: Type.NUMBER },
+                title: { type: Type.STRING },
+                questionText: { type: Type.STRING },
+                fullScore: { type: Type.NUMBER },
+              },
+              required: ['questionNumber','title','questionText','fullScore']
+            }
+          }
+        }
+      });
+      const text = typeof resp.text === 'function' ? await resp.text() : String(resp.text || '');
+      try {
+        questions = JSON.parse(text);
+      } catch (e) {
+        console.error('解析失败:', text);
+        alert('AI 返回格式异常，无法解析题目。');
+        elAnalyzeStatus.textContent = '';
+        return;
+      }
+      renderQuestions();
+      elAnalyzeStatus.textContent = `识别完成，共 ${questions.length} 道主观题。`;
+    }
+
+    function renderQuestions() {
+      elQuestionsSection.classList.remove('hidden');
+      elQuestionList.innerHTML = '';
+      if (!Array.isArray(questions) || questions.length === 0) {
+        elQuestionList.innerHTML = '<li class="text-slate-500">未识别到主观题</li>';
+        elQuestionDetail.classList.add('hidden');
+        return;
+      }
+      questions.forEach((q, idx) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <button class="w-full text-left p-3 rounded-md hover:bg-teal-50 border border-slate-200">
+            <span class="font-medium">${q.questionNumber}. ${q.title}</span>
+          </button>
+        `;
+        li.querySelector('button').addEventListener('click', () => showQuestion(idx));
+        elQuestionList.appendChild(li);
+      });
+      showQuestion(0);
+    }
+
+    async function gradeQuestion(q, studentAnswer) {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `As a high school biology teacher's assistant, grade the student's answer. Question: "${q.questionText}" Full Score: ${q.fullScore}. Student's Answer: "${studentAnswer}". Return JSON with fields: suggestedScore (0-${q.fullScore}), isAnswerCorrect (boolean), feedback (string), keyPointsHit (string[]), pointsToImprove (string[]).`;
+      const resp = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [ { role: 'user', parts: [ { text: prompt } ] } ],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              suggestedScore: { type: Type.INTEGER },
+              isAnswerCorrect: { type: Type.BOOLEAN },
+              feedback: { type: Type.STRING },
+              keyPointsHit: { type: Type.ARRAY, items: { type: Type.STRING } },
+              pointsToImprove: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ['suggestedScore','isAnswerCorrect','feedback','keyPointsHit','pointsToImprove']
+          }
+        }
+      });
+      const text = typeof resp.text === 'function' ? await resp.text() : String(resp.text || '');
+      return JSON.parse(text);
+    }
+
+    function showQuestion(index) {
+      const q = questions[index];
+      elQuestionDetail.classList.remove('hidden');
+      elQuestionDetail.innerHTML = `
+        <div class="border-b pb-3 mb-3">
+          <div class="text-lg font-bold">${q.questionNumber}. ${q.title}</div>
+          <div class="mt-2 text-slate-700">${q.questionText}</div>
+          <div class="mt-1 text-sm text-teal-700">满分：${q.fullScore} 分</div>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm text-slate-700">学生答案</label>
+            <textarea id="stuAns" rows="4" class="mt-1 w-full p-2 border rounded-md border-slate-300" placeholder="在此输入学生作答..."></textarea>
+          </div>
+          <button id="btnGrade" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">AI 辅助评分</button>
+          <div id="gradeOut" class="mt-2 text-sm text-slate-600"></div>
+          <div id="feedbackWrap" class="hidden mt-3 space-y-3"></div>
+        </div>
+      `;
+      const elBtnGrade = document.getElementById('btnGrade');
+      const elStuAns = document.getElementById('stuAns');
+      const elGradeOut = document.getElementById('gradeOut');
+      const elFeedback = document.getElementById('feedbackWrap');
+      elBtnGrade.addEventListener('click', async () => {
+        const ans = elStuAns.value.trim();
+        if (!ans) { alert('请先输入学生答案'); return; }
+        elBtnGrade.disabled = true;
+        elGradeOut.textContent = '正在评分...';
+        try {
+          const fb = await gradeQuestion(q, ans);
+          elFeedback.classList.remove('hidden');
+          elFeedback.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="md:col-span-2 bg-slate-50 p-3 rounded border">${fb.feedback}</div>
+              <div class="text-center bg-teal-50 p-3 rounded border">
+                <div class="text-sm text-slate-600">AI 建议分</div>
+                <div class="text-3xl font-bold text-teal-700">${fb.suggestedScore} / ${q.fullScore}</div>
+                <div class="mt-1 text-xs ${fb.isAnswerCorrect ? 'text-green-700' : 'text-orange-700'}">${fb.isAnswerCorrect ? '核心正确' : '存在偏差'}</div>
+              </div>
             </div>
-            <div class="invokeBox">
-                <button id="openUrl">open_url_browser</button>
-                <button id="openUrlNew">open_url_new</button>
-                <button id="runCommand">run_command</button>
-                <button id="downloadFile">download_file</button>
-                <button id="getExeDir">get_exe_dir</button>
-                <button id="getEnvVar">get_env_var</button>
-                <button id="findPort">find_port</button>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="bg-green-50 p-3 rounded border">
+                <div class="font-semibold text-green-800 mb-2">得分点</div>
+                <ul class="list-disc list-inside text-slate-700">${(fb.keyPointsHit||[]).map(t=>`<li>${t}</li>`).join('')||'<li class="text-slate-500">无</li>'}</ul>
+              </div>
+              <div class="bg-orange-50 p-3 rounded border">
+                <div class="font-semibold text-orange-800 mb-2">待改进</div>
+                <ul class="list-disc list-inside text-slate-700">${(fb.pointsToImprove||[]).map(t=>`<li>${t}</li>`).join('')||'<li class="text-slate-500">暂无</li>'}</ul>
+              </div>
             </div>
-        </main>
-    </body>
+          `;
+          elGradeOut.textContent = '';
+        } catch (e) {
+          console.error(e);
+          elGradeOut.innerHTML = '<span class="text-red-600">评分失败：检查网络与 API Key</span>';
+        } finally {
+          elBtnGrade.disabled = false;
+        }
+      });
+    }
+
+    function resetQuestions() {
+      questions = [];
+      elQuestionsSection.classList.add('hidden');
+      elQuestionList.innerHTML = '';
+      elQuestionDetail.classList.add('hidden');
+      elImgWrap.classList.add('hidden');
+      elThumbs.classList.add('hidden');
+      selectedImageFile = null;
+      elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
+    }
+
+    elBtnAnalyze.addEventListener('click', analyze);
+  </script>
+</body>
 </html>
+
