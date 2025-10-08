@@ -1,348 +1,1464 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>高中生物试卷智能阅卷助手（单文件版）</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .thumb { cursor: pointer; transition: transform .15s ease; }
-    .thumb:hover { transform: translateY(-2px); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-  </style>
-</head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
-  <div class="max-w-5xl mx-auto p-4 md:p-8">
-    <header class="mb-6">
-      <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-2">
-        <span class="text-teal-600">AI 助教</span> 高中生物试卷智能阅卷助手（单文件）
-      </h1>
-      <p class="text-slate-500 mt-1">无需安装环境，直接在浏览器中使用。本页不会保存任何数据。</p>
-    </header>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>细胞膜流动镶嵌模型 - 交互式教学系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    <section class="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-      <h2 class="text-lg font-semibold mb-3">1. 设置 Gemini API Key</h2>
-      <p class="text-sm text-slate-600 mb-3">仅用于当前浏览器会话。请勿在公共设备使用你的私密 Key。</p>
-      <div class="flex flex-col md:flex-row gap-3 items-start md:items-center">
-        <input id="apiKey" type="password" placeholder="粘贴你的 GEMINI_API_KEY"
-               class="w-full md:flex-1 px-3 py-2 border rounded-md border-slate-300 focus:ring-2 focus:ring-teal-500" />
-        <button id="btnSaveKey" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">保存 Key</button>
-        <button id="btnClearKey" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300">清除</button>
-      </div>
-      <p id="keyStatus" class="text-sm mt-2 text-slate-500">未设置</p>
-    </section>
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden; /* 页面不出现横向滚动 */
+        }
 
-    <section class="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-      <h2 class="text-lg font-semibold mb-3">2. 上传试卷（图片或 PDF）</h2>
-      <input id="fileInput" type="file" accept="image/*,application/pdf"
-             class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" />
-      <div id="pdfThumbs" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 hidden"></div>
-      <div id="imagePreviewWrap" class="mt-4 hidden">
-        <p class="text-sm text-slate-600 mb-2">已选择图片：</p>
-        <img id="imagePreview" class="max-h-64 rounded border" alt="预览" />
-      </div>
-      <div class="mt-4">
-        <button id="btnAnalyze" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-slate-400" disabled>识别主观题</button>
-        <span id="analyzeStatus" class="ml-3 text-sm text-slate-500"></span>
-      </div>
-    </section>
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
 
-    <section id="questionsSection" class="bg-white rounded-lg shadow p-4 md:p-6 mb-6 hidden">
-      <h2 class="text-lg font-semibold mb-3">3. 题目与评分</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <h3 class="text-slate-700 font-semibold mb-2">题目列表</h3>
-          <ul id="questionList" class="space-y-2"></ul>
-        </div>
-        <div class="md:col-span-2">
-          <div id="questionDetail" class="border rounded-lg p-4 bg-slate-50 hidden"></div>
-        </div>
-      </div>
-    </section>
+        .header {
+            text-align: center;
+            color: #1565c0;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
 
-    <footer class="text-xs text-slate-400 mt-10">
-      <p>提示：本页面直接在浏览器调用 Gemini 接口，需联网且你的 Key 需允许在浏览器使用（Referer/域名限制）。</p>
-    </footer>
-  </div>
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
 
-  <script type="module">
-    import { GoogleGenAI, Type } from 'https://esm.sh/@google/genai@0.14.0';
-    import * as pdfjs from 'https://esm.sh/pdfjs-dist@5.4.149/build/pdf.mjs';
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@5.4.149/build/pdf.worker.mjs';
+        .header p {
+            color: #546e7a;
+            font-size: 1.1em;
+        }
 
-    // DOM refs
-    const elApiKey = document.getElementById('apiKey');
-    const elBtnSaveKey = document.getElementById('btnSaveKey');
-    const elBtnClearKey = document.getElementById('btnClearKey');
-    const elKeyStatus = document.getElementById('keyStatus');
-    const elFile = document.getElementById('fileInput');
-    const elThumbs = document.getElementById('pdfThumbs');
-    const elImgWrap = document.getElementById('imagePreviewWrap');
-    const elImg = document.getElementById('imagePreview');
-    const elBtnAnalyze = document.getElementById('btnAnalyze');
-    const elAnalyzeStatus = document.getElementById('analyzeStatus');
-    const elQuestionsSection = document.getElementById('questionsSection');
-    const elQuestionList = document.getElementById('questionList');
-    const elQuestionDetail = document.getElementById('questionDetail');
+        .header .meta-author {
+            color: #78909c;
+            font-size: 0.95em;
+            margin-top: 4px;
+        }
 
-    let apiKey = localStorage.getItem('gemini_key') || '';
-    let selectedImageFile = null; // File chosen or rendered from PDF
-    let questions = [];
+        .main-content {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) clamp(240px, 28vw, 300px); /* 自适应右侧列，确保不溢出 */
+            grid-template-rows: auto 1fr;     /* 顶部组件栏 + 下方画布 */
+            gap: 20px;
+            align-items: start;
+        }
 
-    function updateKeyUI() {
-      if (apiKey) {
-        elKeyStatus.textContent = '已设置';
-        elKeyStatus.className = 'text-sm mt-2 text-teal-700';
-        elApiKey.value = '';
-      } else {
-        elKeyStatus.textContent = '未设置';
-        elKeyStatus.className = 'text-sm mt-2 text-slate-500';
-      }
-      elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
-    }
+        .component-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            height: fit-content;
+            grid-column: 1;
+            grid-row: 1;
+        }
 
-    elBtnSaveKey.addEventListener('click', () => {
-      const v = elApiKey.value.trim();
-      if (!v) { alert('请输入有效的 API Key'); return; }
-      apiKey = v;
-      localStorage.setItem('gemini_key', apiKey);
-      updateKeyUI();
-    });
-    elBtnClearKey.addEventListener('click', () => {
-      apiKey = '';
-      localStorage.removeItem('gemini_key');
-      updateKeyUI();
-    });
-    updateKeyUI();
+        .component-strip {
+            display: flex;                    /* 单排水平排列 */
+            flex-wrap: nowrap;                /* 不换行，超出则滚动 */
+            gap: 6px;                         /* 缩小卡片间距 */
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            overscroll-behavior-x: contain;   /* 只在此处水平滚动，不联动页面 */
+        }
+        .component-strip::-webkit-scrollbar { height: 8px; }
+        .component-strip::-webkit-scrollbar-thumb { background: #c5d7f2; border-radius: 8px; }
+        .component-strip::-webkit-scrollbar-track { background: #eef3fb; }
 
-    elFile.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      resetQuestions();
-      if (!file) return;
-      if (file.type === 'application/pdf') {
-        await handlePdf(file);
-      } else if (file.type.startsWith('image/')) {
-        selectedImageFile = file;
-        elImg.src = URL.createObjectURL(file);
-        elImgWrap.classList.remove('hidden');
-        elThumbs.classList.add('hidden');
-        elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
-      } else {
-        alert('请上传图片或 PDF 文件');
-      }
-    });
+        .component-panel h2 {
+            color: #1565c0;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #e3f2fd;
+        }
 
-    async function handlePdf(file) {
-      elAnalyzeStatus.textContent = '';
-      elThumbs.innerHTML = '';
-      elThumbs.classList.remove('hidden');
-      elImgWrap.classList.add('hidden');
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjs.getDocument(new Uint8Array(arrayBuffer)).promise;
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width; canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        const card = document.createElement('div');
-        card.className = 'border rounded-md overflow-hidden thumb';
-        card.innerHTML = `
-          <img src="${dataUrl}" alt="第 ${i} 页" class="w-full block" />
-          <div class="p-2 text-center bg-slate-50 text-sm">第 ${i} 页</div>
-        `;
-        card.addEventListener('click', async () => {
-          elAnalyzeStatus.textContent = '正在提取高清页面...';
-          const bigViewport = page.getViewport({ scale: 2 });
-          const bigCanvas = document.createElement('canvas');
-          bigCanvas.width = bigViewport.width; bigCanvas.height = bigViewport.height;
-          const bigCtx = bigCanvas.getContext('2d');
-          await page.render({ canvasContext: bigCtx, viewport: bigViewport }).promise;
-          const blob = await new Promise(resolve => bigCanvas.toBlob(resolve, 'image/jpeg', 0.95));
-          selectedImageFile = new File([blob], `page_${i}.jpg`, { type: 'image/jpeg' });
-          elImg.src = URL.createObjectURL(selectedImageFile);
-          elImgWrap.classList.remove('hidden');
-          elAnalyzeStatus.textContent = '已选择高清页面，可开始识别。';
-          elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
-        });
-        elThumbs.appendChild(card);
-      }
-    }
+        .component-item {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 6px;                     /* 更紧凑的内边距 */
+            margin-bottom: 0;
+            cursor: grab;
+            transition: all 0.3s ease;
+            position: relative;
+            user-select: none;
+            width: 100px;       /* 小正方形卡片 */
+            min-width: 100px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
 
-    function fileToPart(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result !== 'string') return reject(new Error('读取文件失败'));
-          const base64 = reader.result.split(',')[1] || '';
-          resolve({ inlineData: { data: base64, mimeType: file.type } });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
+        .component-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+            border-color: #2196f3;
+            background: #e3f2fd;
+        }
 
-    async function analyze() {
-      if (!apiKey || !selectedImageFile) return;
-      elAnalyzeStatus.textContent = '正在分析试卷...';
-      const ai = new GoogleGenAI({ apiKey });
-      const imagePart = await fileToPart(selectedImageFile);
-      const prompt = `You are an expert teaching assistant for high school biology. Identify ONLY the subjective questions from the provided image. Return JSON array with objects: questionNumber (number), title (string), questionText (string), fullScore (number).`;
-      const resp = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [ { role: 'user', parts: [ { text: prompt }, imagePart ] } ],
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                questionNumber: { type: Type.NUMBER },
-                title: { type: Type.STRING },
-                questionText: { type: Type.STRING },
-                fullScore: { type: Type.NUMBER },
-              },
-              required: ['questionNumber','title','questionText','fullScore']
+        .component-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .component-item.selected {
+            border-color: #1976d2;
+            background: #e3f2fd;
+            box-shadow: 0 4px 12px rgba(25,118,210,0.25);
+        }
+
+        .component-visual {
+            width: 100%;
+            height: 56px;                     /* 小正方形中更清晰的预览区 */
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .component-visual svg { width: 48px; height: 48px; }
+
+        .component-name {
+            display: block;                   /* 简短名称显示 */
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+            color: #37474f;
+            font-size: 11px;                 /* 更小字号 */
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .component-desc { display: none; }
+
+        .membrane-builder {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .builder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e3f2fd;
+        }
+
+        .builder-header h2 {
+            color: #1565c0;
+            font-size: 1.4em;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-icon {
+            padding: 8px 10px;
+            font-size: 12px;
+            border-radius: 8px;
+            background: #e9eef6;
+            color: #0f172a;
+        }
+        .btn-icon.active { background: #cfe1ff; color: #0b3d91; }
+
+        .btn-preset {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-preset:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-save { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); color:#fff; }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 176, 155, 0.35); }
+        .btn-load { background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%); color:#fff; }
+        .btn-load:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(255, 94, 98, 0.35); }
+
+        
+
+        .btn-motion {
+            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            color: white;
+        }
+        .btn-motion.active {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #0b3d2e;
+        }
+
+        #membraneCanvas {
+            width: 100%;
+            height: 500px;
+            background: #ffffff;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 3px dashed #90caf9;
+            transition: all 0.3s ease;
+            overscroll-behavior: contain; /* 防止触控滚动链到页面 */
+        }
+
+        /* Studio 模式：更像建模平台的视觉 */
+        #membraneCanvas.studio {
+            background: radial-gradient(1200px 600px at 30% 30%, #111927 0%, #0b1220 60%, #0a0f1a 100%);
+            border: 1px solid #243247;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 10px 30px rgba(0,0,0,0.25);
+        }
+
+        /* 画布内容容器：统一缩放对象 */
+        #canvasContent {
+            position: absolute;
+            inset: 0;
+            transform-origin: center center;
+            touch-action: none; /* 允许自定义多指手势（pinch/pan） */
+        }
+
+        /* 网格覆盖层（跟随缩放） */
+        .grid-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.22;
+            display: none;
+            background-image:
+              linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+              linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+            background-size: 10px 10px, 10px 10px, 50px 50px, 50px 50px;
+            background-position: 0 0, 0 0, 0 0, 0 0;
+        }
+
+        /* 底部状态栏 */
+        .status-bar {
+            margin-top: 8px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #334155;
+            background: #f1f5f9;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        #membraneCanvas.studio + .status-bar { background: #0f172a; color: #cbd5e1; border: 1px solid #243247; }
+
+        /* 操作提示 */
+        .op-hint {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #607d8b;
+            background: #f8fafc;
+            border: 1px dashed #e2e8f0;
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+
+        #membraneCanvas.placing {
+            cursor: crosshair;
+            border-color: #1976d2;
+        }
+
+        #membraneCanvas.drag-over {
+            border-color: #1976d2;
+            background: #ffffff;
+            box-shadow: inset 0 0 30px rgba(25, 118, 210, 0.2);
+        }
+
+        .membrane-layer {
+            position: absolute;
+            width: 100%;
+            height: 200px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .placed-component {
+            position: absolute;
+            cursor: move;
+            transition: filter 0.3s ease;
+            z-index: 10;
+            user-select: none;
+        }
+
+        .placed-component:hover {
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3)) brightness(1.1);
+            z-index: 20;
+        }
+
+        .info-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            height: fit-content;
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            min-width: 240px;
+        }
+
+        .info-panel h2 {
+            color: #1565c0;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #e3f2fd;
+        }
+
+        .stats-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: stretch;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 12px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #37474f;
+            font-size: 0.95em;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #1565c0;
+            background: white;
+            padding: 2px 10px;
+            border-radius: 15px;
+        }
+
+        .knowledge-card {
+            background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .knowledge-card h3 {
+            color: #f57c00;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .knowledge-card p {
+            color: #5d4037;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(33, 33, 33, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(5px);
+        }
+
+        /* 删除双击删除的提示，避免遮挡视野 */
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .floating { animation: float 3s ease-in-out infinite; }
+        .pulsing { animation: pulse 2s ease-in-out infinite; }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
             }
-          }
+            .component-panel { grid-column: 1; grid-row: 1; }
+            .membrane-builder { grid-column: 1; grid-row: 2; }
+            .info-panel { grid-column: 1; grid-row: 3; max-width: 100%; }
         }
-      });
-      const text = typeof resp.text === 'function' ? await resp.text() : String(resp.text || '');
-      try {
-        questions = JSON.parse(text);
-      } catch (e) {
-        console.error('解析失败:', text);
-        alert('AI 返回格式异常，无法解析题目。');
-        elAnalyzeStatus.textContent = '';
-        return;
-      }
-      renderQuestions();
-      elAnalyzeStatus.textContent = `识别完成，共 ${questions.length} 道主观题。`;
-    }
-
-    function renderQuestions() {
-      elQuestionsSection.classList.remove('hidden');
-      elQuestionList.innerHTML = '';
-      if (!Array.isArray(questions) || questions.length === 0) {
-        elQuestionList.innerHTML = '<li class="text-slate-500">未识别到主观题</li>';
-        elQuestionDetail.classList.add('hidden');
-        return;
-      }
-      questions.forEach((q, idx) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <button class="w-full text-left p-3 rounded-md hover:bg-teal-50 border border-slate-200">
-            <span class="font-medium">${q.questionNumber}. ${q.title}</span>
-          </button>
-        `;
-        li.querySelector('button').addEventListener('click', () => showQuestion(idx));
-        elQuestionList.appendChild(li);
-      });
-      showQuestion(0);
-    }
-
-    async function gradeQuestion(q, studentAnswer) {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `As a high school biology teacher's assistant, grade the student's answer. Question: "${q.questionText}" Full Score: ${q.fullScore}. Student's Answer: "${studentAnswer}". Return JSON with fields: suggestedScore (0-${q.fullScore}), isAnswerCorrect (boolean), feedback (string), keyPointsHit (string[]), pointsToImprove (string[]).`;
-      const resp = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [ { role: 'user', parts: [ { text: prompt } ] } ],
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              suggestedScore: { type: Type.INTEGER },
-              isAnswerCorrect: { type: Type.BOOLEAN },
-              feedback: { type: Type.STRING },
-              keyPointsHit: { type: Type.ARRAY, items: { type: Type.STRING } },
-              pointsToImprove: { type: Type.ARRAY, items: { type: Type.STRING } },
-            },
-            required: ['suggestedScore','isAnswerCorrect','feedback','keyPointsHit','pointsToImprove']
-          }
-        }
-      });
-      const text = typeof resp.text === 'function' ? await resp.text() : String(resp.text || '');
-      return JSON.parse(text);
-    }
-
-    function showQuestion(index) {
-      const q = questions[index];
-      elQuestionDetail.classList.remove('hidden');
-      elQuestionDetail.innerHTML = `
-        <div class="border-b pb-3 mb-3">
-          <div class="text-lg font-bold">${q.questionNumber}. ${q.title}</div>
-          <div class="mt-2 text-slate-700">${q.questionText}</div>
-          <div class="mt-1 text-sm text-teal-700">满分：${q.fullScore} 分</div>
+    </style>
+    </head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 细胞膜流动镶嵌模型 - 交互式教学系统</h1>
+            <div class="meta-author">制作信息：饶名祯 · 广昌县第一中学</div>
         </div>
-        <div class="space-y-3">
-          <div>
-            <label class="text-sm text-slate-700">学生答案</label>
-            <textarea id="stuAns" rows="4" class="mt-1 w-full p-2 border rounded-md border-slate-300" placeholder="在此输入学生作答..."></textarea>
-          </div>
-          <button id="btnGrade" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">AI 辅助评分</button>
-          <div id="gradeOut" class="mt-2 text-sm text-slate-600"></div>
-          <div id="feedbackWrap" class="hidden mt-3 space-y-3"></div>
+
+        <div class="main-content">
+            <div class="component-panel">
+                <h2>📦 膜结构组件</h2>
+                <div class="component-strip">
+
+                <!-- 磷脂分子（正置） -->
+                <div class="component-item" draggable="true" data-type="phospholipid-up" data-name="磷脂分子（正置）" title="磷脂分子（正置）：头部朝外、尾部朝内">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <circle cx="20" cy="15" r="8" fill="#64B5F6"/>
+                            <path d="M15 25 C 12 32, 18 38, 15 45 C 12 50, 18 55, 15 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M25 25 C 28 32, 22 38, 25 45 C 28 50, 22 55, 25 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+
+                            <circle cx="60" cy="15" r="8" fill="#64B5F6"/>
+                            <path d="M55 25 C 52 32, 58 38, 55 45 C 52 50, 58 55, 55 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M65 25 C 68 32, 62 38, 65 45 C 68 50, 62 55, 65 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">磷脂(正)</div>
+                    <div class="component-desc">头部朝外、尾部朝内，构成上层</div>
+                </div>
+
+                <!-- 磷脂分子（倒置） -->
+                <div class="component-item" draggable="true" data-type="phospholipid-down" data-name="磷脂分子（倒置）" title="磷脂分子（倒置）：头部朝外、尾部朝内（下层）">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <circle cx="20" cy="45" r="8" fill="#64B5F6"/>
+                            <path d="M15 35 C 12 28, 18 22, 15 15 C 12 10, 18 5, 15 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M25 35 C 28 28, 22 22, 25 15 C 28 10, 22 5, 25 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+
+                            <circle cx="60" cy="45" r="8" fill="#64B5F6"/>
+                            <path d="M55 35 C 52 28, 58 22, 55 15 C 52 10, 58 5, 55 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M65 35 C 68 28, 62 22, 65 15 C 68 10, 62 5, 65 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">磷脂(倒)</div>
+                    <div class="component-desc">头部朝外、尾部朝内，构成下层</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="integral-protein" data-name="跨膜蛋白" title="跨膜蛋白：嵌入并穿过脂双层">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <path d="M28 8 C 24 18, 24 42, 28 52 L52 52 C 56 42, 56 18, 52 8 Z" fill="#9575CD" opacity="0.95"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">跨膜蛋白</div>
+                    <div class="component-desc">贯穿整个脂双层，参与物质运输和信号传导</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="peripheral-protein" data-name="外周蛋白" title="外周蛋白：附着膜内外表面，不穿过膜">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <ellipse cx="40" cy="30" rx="24" ry="14" fill="#B39DDB" opacity="0.95"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">外周蛋白</div>
+                    <div class="component-desc">附着在膜的内外表面，不穿过脂双层</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="glycoprotein" data-name="糖蛋白" title="糖蛋白：主链向上 + 右侧长支链，六边形糖相连，无连线">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <rect x="30" y="28" width="20" height="27" rx="6" fill="#7CB342" opacity="0.9"/>
+                            <!-- 主链上的六边形糖（相邻排列，无连线） -->
+                            <polygon points="43,24 41.5,21.4 38.5,21.4 37,24 38.5,26.6 41.5,26.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,18 41.5,15.4 38.5,15.4 37,18 38.5,20.6 41.5,20.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,12 41.5,9.4 38.5,9.4 37,12 38.5,14.6 41.5,14.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,6 41.5,3.4 38.5,3.4 37,6 38.5,8.6 41.5,8.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <!-- 右侧支链上的 6 个六边形糖（沿斜向排列，无连线） -->
+                            <polygon points="49,20.5 47.5,17.9 44.5,17.9 43,20.5 44.5,23.1 47.5,23.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="53,18.5 51.5,15.9 48.5,15.9 47,18.5 48.5,21.1 51.5,21.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="57,16.5 55.5,13.9 52.5,13.9 51,16.5 52.5,19.1 55.5,19.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="61,14.5 59.5,11.9 56.5,11.9 55,14.5 56.5,17.1 59.5,17.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="65,12.5 63.5,9.9 60.5,9.9 59,12.5 60.5,15.1 63.5,15.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="69,10.5 67.5,7.9 64.5,7.9 63,10.5 64.5,13.1 67.5,13.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="73,8.5 71.5,5.9 68.5,5.9 67,8.5 68.5,11.1 71.5,11.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="77,6.5 75.5,3.9 72.5,3.9 71,6.5 72.5,9.1 75.5,9.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">糖蛋白</div>
+                    <div class="component-desc">一条主链 + 右侧较长支链（≥6 六边形糖）</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="glycolipid" data-name="糖脂" title="糖脂：主链上延 + 右侧长支链，六边形糖相连，无连线">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <!-- 橙红色疏水尾（波浪） + 头部 -->
+                            <circle cx="40" cy="35" r="6" fill="#FF7043"/>
+                            <path d="M35 41 C 32 46, 38 50, 35 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M45 41 C 48 46, 42 50, 45 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <!-- 主链上的六边形糖（相邻排列） -->
+                            <polygon points="43,25 41.5,22.4 38.5,22.4 37,25 38.5,27.6 41.5,27.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,19 41.5,16.4 38.5,16.4 37,19 38.5,21.6 41.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,13.5 41.5,10.9 38.5,10.9 37,13.5 38.5,16.1 41.5,16.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <!-- 右侧支链上的 6 个六边形糖（斜向排列） -->
+                            <polygon points="49,21 47.5,18.4 44.5,18.4 43,21 44.5,23.6 47.5,23.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="53,19 51.5,16.4 48.5,16.4 47,19 48.5,21.6 51.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="57,17 55.5,14.4 52.5,14.4 51,17 52.5,19.6 55.5,19.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="61,15 59.5,12.4 56.5,12.4 55,15 56.5,17.6 59.5,17.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="65,13 63.5,10.4 60.5,10.4 59,13 60.5,15.6 63.5,15.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="69,11 67.5,8.4 64.5,8.4 63,11 64.5,13.6 67.5,13.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="73,9 71.5,6.4 68.5,6.4 67,9 68.5,11.6 71.5,11.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="77,7 75.5,4.4 72.5,4.4 71,7 72.5,9.6 75.5,9.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">糖脂</div>
+                    <div class="component-desc">一条主链 + 右侧较长支链（≥6 六边形糖）</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="cholesterol" data-name="胆固醇" title="胆固醇：位于脂双层中，调节流动性">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <!-- 较小的刚性环状结构（黄色） -->
+                            <polygon points="40,18 48,24 48,36 40,42 32,36 32,24" fill="#FFB300" opacity="0.95"/>
+                            <circle cx="40" cy="30" r="4.5" fill="#F57C00"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">胆固醇</div>
+                    <div class="component-desc">调节膜的流动性和稳定性</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="channel-protein" data-name="通道蛋白" title="离子通道：形成贯穿首尾的亲水通道">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <!-- 贯穿型通道：内孔镂空（透明），从顶部到底部贯穿 -->
+                            <defs>
+                                <mask id="channelMaskIcon">
+                                    <rect x="0" y="0" width="80" height="60" fill="white"/>
+                                    <!-- 黑色区域为镂空内孔（首尾贯穿） -->
+                                    <rect x="34" y="0" width="12" height="60" rx="6" fill="black"/>
+                                </mask>
+                            </defs>
+                            <rect x="28" y="6" width="24" height="48" rx="10" fill="#9575CD" opacity="0.95" mask="url(#channelMaskIcon)"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">通道蛋白</div>
+                    <div class="component-desc">形成亲水通道，允许特定离子通过</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="carrier-protein" data-name="载体蛋白" title="载体蛋白：首尾贯穿，左右凹槽，更厚实；通道更窄">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <defs>
+                                <mask id="carrierMaskIcon">
+                                    <rect x="0" y="0" width="80" height="60" fill="white"/>
+                                    <!-- 首尾贯穿的内孔 -->
+                                    <rect x="36" y="0" width="8" height="60" rx="4" fill="black"/>
+                                    <!-- 左右两侧半圆形凹槽/缺口 -->
+                                    <circle cx="36" cy="30" r="4.5" fill="black"/>
+                                    <circle cx="44" cy="30" r="4.5" fill="black"/>
+                                </mask>
+                            </defs>
+                            <!-- 外部主体更厚实（增宽） + 镂空内孔 -->
+                            <rect x="25" y="6" width="30" height="48" rx="12" fill="#7E57C2" opacity="0.95" mask="url(#carrierMaskIcon)"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">载体蛋白</div>
+                    <div class="component-desc">首尾贯穿，左右侧壁均有凹槽/缺口</div>
+                </div>
+
+                <!-- 新增：多糖链（六边形相连，无连线） -->
+                <div class="component-item" draggable="true" data-type="polysaccharide" data-name="多糖链" title="多糖链：六边形糖相连，主链更长，右侧有较长支链">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                <!-- 主链：纵向 5 个六边形 -->
+                <polygon points="43,48 41.5,45.4 38.5,45.4 37,48 38.5,50.6 41.5,50.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,42 41.5,39.4 38.5,39.4 37,42 38.5,44.6 41.5,44.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,36 41.5,33.4 38.5,33.4 37,36 38.5,38.6 41.5,38.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,30 41.5,27.4 38.5,27.4 37,30 38.5,32.6 41.5,32.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,24 41.5,21.4 38.5,21.4 37,24 38.5,26.6 41.5,26.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,18 41.5,15.4 38.5,15.4 37,18 38.5,20.6 41.5,20.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <!-- 右侧较长支链：≥6 个六边形，斜向排列 -->
+                <polygon points="49,44.5 47.5,41.9 44.5,41.9 43,44.5 44.5,47.1 47.5,47.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="53,42.5 51.5,39.9 48.5,39.9 47,42.5 48.5,45.1 51.5,45.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="57,40.5 55.5,37.9 52.5,37.9 51,40.5 52.5,43.1 55.5,43.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="61,38.5 59.5,35.9 56.5,35.9 55,38.5 56.5,41.1 59.5,41.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="65,36.5 63.5,33.9 60.5,33.9 59,36.5 60.5,39.1 63.5,39.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="69,34.5 67.5,31.9 64.5,31.9 63,34.5 64.5,37.1 67.5,37.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="73,32.5 71.5,29.9 68.5,29.9 67,32.5 68.5,35.1 71.5,35.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="77,30.5 75.5,27.9 72.5,27.9 71,30.5 72.5,33.1 75.5,33.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">多糖链</div>
+                    <div class="component-desc">六边形相连的长链，右侧长支链</div>
+                </div>
+
+                <!-- 新增：寡糖链（六边形相连，无连线） -->
+                <div class="component-item" draggable="true" data-type="oligosaccharide" data-name="寡糖链" title="寡糖链：六边形糖相连，主链较短，右侧短支链">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                <!-- 主链：纵向 3 个六边形 -->
+                <polygon points="43,42 41.5,39.4 38.5,39.4 37,42 38.5,44.6 41.5,44.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,36 41.5,33.4 38.5,33.4 37,36 38.5,38.6 41.5,38.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,30 41.5,27.4 38.5,27.4 37,30 38.5,32.6 41.5,32.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,24 41.5,21.4 38.5,21.4 37,24 38.5,26.6 41.5,26.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <!-- 右侧短支链：2-3 个六边形 -->
+                <polygon points="49,38.5 47.5,35.9 44.5,35.9 43,38.5 44.5,41.1 47.5,41.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="53,36.5 51.5,33.9 48.5,33.9 47,36.5 48.5,39.1 51.5,39.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="57,34.5 55.5,31.9 52.5,31.9 51,34.5 52.5,37.1 55.5,37.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">寡糖链</div>
+                    <div class="component-desc">六边形相连的短链，右侧短支链</div>
+                </div>
+                </div> <!-- /.component-strip -->
+                <div class="op-hint">操作提示：点击左侧组件选择，再在画布点击放置（亦可拖拽）。双击组件可删除。</div>
+            </div>
+
+            <div class="membrane-builder">
+                <div class="builder-header">
+                    <h2>🔬 膜结构组装区</h2>
+                    <div class="control-buttons">
+                        <button class="btn btn-icon" id="studioBtn" onclick="toggleStudio()">工作台</button>
+                        <button class="btn btn-icon" id="gridBtn" onclick="toggleGrid()">网格</button>
+                        <button class="btn btn-icon" id="snapBtn" onclick="toggleSnap()">吸附</button>
+                        <button class="btn btn-icon" onclick="zoomOut()">缩小</button>
+                        <button class="btn btn-icon" onclick="zoomIn()">放大</button>
+                        <button class="btn btn-icon" onclick="resetView()">重置视图</button>
+                        <button class="btn btn-motion" id="motionToggleBtn" onclick="toggleMotion()">开启运动</button>
+                        <button class="btn btn-save" onclick="saveCustomPreset()">保存为示例</button>
+                        <button class="btn btn-load" onclick="loadCustomPreset()">加载我的示例</button>
+                        <button class="btn btn-preset" onclick="loadPreset()">加载示例</button>
+                        <button class="btn btn-clear" onclick="clearCanvas()">清空画布</button>
+                    </div>
+                </div>
+
+                <div id="membraneCanvas">
+                    <div id="canvasContent">
+                        <div class="grid-overlay" id="gridOverlay"></div>
+                        <div class="membrane-layer" id="membraneBackground"></div>
+                    </div>
+                </div>
+                <div class="status-bar" id="statusBar">
+                    <span id="statusPos">X: -，Y: -</span>
+                    <span id="statusZoom">缩放: 1.00x</span>
+                    <span id="statusFlags">网格: 关 | 吸附: 关</span>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h2>📊 组装统计</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">磷脂（正置）</span>
+                        <span class="stat-value" id="phospholipidUpCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">磷脂（倒置）</span>
+                        <span class="stat-value" id="phospholipidDownCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">跨膜蛋白</span>
+                        <span class="stat-value" id="integralProteinCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">外周蛋白</span>
+                        <span class="stat-value" id="peripheralProteinCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">糖蛋白</span>
+                        <span class="stat-value" id="glycoproteinCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">糖脂</span>
+                        <span class="stat-value" id="glycolipidCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">胆固醇</span>
+                        <span class="stat-value" id="cholesterolCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">通道蛋白</span>
+                        <span class="stat-value" id="channelProteinCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">载体蛋白</span>
+                        <span class="stat-value" id="carrierProteinCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">多糖链</span>
+                        <span class="stat-value" id="polysaccharideCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">寡糖链</span>
+                        <span class="stat-value" id="oligosaccharideCount">0</span>
+                    </div>
+                </div>
+
+                <div class="knowledge-card">
+                    <h3>💡 知识要点</h3>
+                    <p>
+                        <strong>流动镶嵌模型：</strong><br>
+                        • 磷脂双分子层构成基本骨架<br>
+                        • 蛋白质镶嵌或附着在脂双层中<br>
+                        • 糖链（多糖/寡糖）位于细胞膜外侧<br>
+                        • 胆固醇调节膜的流动性<br>
+                        • 整个结构具有流动性
+                    </p>
+                </div>
+            </div>
         </div>
-      `;
-      const elBtnGrade = document.getElementById('btnGrade');
-      const elStuAns = document.getElementById('stuAns');
-      const elGradeOut = document.getElementById('gradeOut');
-      const elFeedback = document.getElementById('feedbackWrap');
-      elBtnGrade.addEventListener('click', async () => {
-        const ans = elStuAns.value.trim();
-        if (!ans) { alert('请先输入学生答案'); return; }
-        elBtnGrade.disabled = true;
-        elGradeOut.textContent = '正在评分...';
-        try {
-          const fb = await gradeQuestion(q, ans);
-          elFeedback.classList.remove('hidden');
-          elFeedback.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div class="md:col-span-2 bg-slate-50 p-3 rounded border">${fb.feedback}</div>
-              <div class="text-center bg-teal-50 p-3 rounded border">
-                <div class="text-sm text-slate-600">AI 建议分</div>
-                <div class="text-3xl font-bold text-teal-700">${fb.suggestedScore} / ${q.fullScore}</div>
-                <div class="mt-1 text-xs ${fb.isAnswerCorrect ? 'text-green-700' : 'text-orange-700'}">${fb.isAnswerCorrect ? '核心正确' : '存在偏差'}</div>
-              </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="bg-green-50 p-3 rounded border">
-                <div class="font-semibold text-green-800 mb-2">得分点</div>
-                <ul class="list-disc list-inside text-slate-700">${(fb.keyPointsHit||[]).map(t=>`<li>${t}</li>`).join('')||'<li class="text-slate-500">无</li>'}</ul>
-              </div>
-              <div class="bg-orange-50 p-3 rounded border">
-                <div class="font-semibold text-orange-800 mb-2">待改进</div>
-                <ul class="list-disc list-inside text-slate-700">${(fb.pointsToImprove||[]).map(t=>`<li>${t}</li>`).join('')||'<li class="text-slate-500">暂无</li>'}</ul>
-              </div>
-            </div>
-          `;
-          elGradeOut.textContent = '';
-        } catch (e) {
-          console.error(e);
-          elGradeOut.innerHTML = '<span class="text-red-600">评分失败：检查网络与 API Key</span>';
-        } finally {
-          elBtnGrade.disabled = false;
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // 全局变量
+        const canvas = document.getElementById('membraneCanvas');
+        const content = document.getElementById('canvasContent');
+        const gridOverlay = document.getElementById('gridOverlay');
+        const statusBar = document.getElementById('statusBar');
+        const statusPos = document.getElementById('statusPos');
+        const statusZoom = document.getElementById('statusZoom');
+        const statusFlags = document.getElementById('statusFlags');
+        const tooltip = document.getElementById('tooltip');
+        let draggedElement = null;
+        let currentView = 'side'; // 'side' 或 'top'
+        let componentCounts = {};
+        let selectedType = null; // 当前点击放置选择的组件类型
+        let selectedItemEl = null; // 左侧被选中的项
+        let motionEnabled = false; // 分子运动开关，默认静止
+
+        // 组件信息定义
+        const componentInfo = {
+            'phospholipid-up': { name: '磷脂分子（正置）', desc: '头部朝外、尾部朝内，适用于上层' },
+            'phospholipid-down': { name: '磷脂分子（倒置）', desc: '头部朝外、尾部朝内，适用于下层' },
+            'integral-protein': { name: '跨膜蛋白（整合蛋白）', desc: '贯穿脂双层，参与物质运输和信号传导' },
+            'peripheral-protein': { name: '外周蛋白（膜周蛋白）', desc: '附着在膜的内外表面，不穿过脂双层' },
+            'glycoprotein': { name: '糖蛋白', desc: '蛋白质连接糖链，参与细胞识别与免疫' },
+            'glycolipid': { name: '糖脂', desc: '脂质连接糖链，位于细胞膜外侧' },
+            'cholesterol': { name: '胆固醇', desc: '插入脂双层之间，调节膜的流动性与稳定性' },
+            'channel-protein': { name: '离子通道蛋白', desc: '形成亲水孔道，允许特定离子选择性通过' },
+            'carrier-protein': { name: '载体蛋白', desc: '首尾贯穿，并在通道内具有结合位点' },
+            'polysaccharide': { name: '多糖链', desc: '较长的分支糖链，构成糖萼，位于外侧' },
+            'oligosaccharide': { name: '寡糖链', desc: '较短的分支糖链，多连接于糖蛋白/糖脂' }
+        };
+
+        // 统计面板映射
+        const typeToCounterId = {
+            'phospholipid-up': 'phospholipidUpCount',
+            'phospholipid-down': 'phospholipidDownCount',
+            'integral-protein': 'integralProteinCount',
+            'peripheral-protein': 'peripheralProteinCount',
+            'glycoprotein': 'glycoproteinCount',
+            'glycolipid': 'glycolipidCount',
+            'cholesterol': 'cholesterolCount',
+            'channel-protein': 'channelProteinCount',
+            'carrier-protein': 'carrierProteinCount',
+            'polysaccharide': 'polysaccharideCount',
+            'oligosaccharide': 'oligosaccharideCount'
+        };
+
+        // 本地存储键名
+        const STORAGE_KEY = 'cell-membrane-custom-preset-v1';
+
+        // 组件SVG定义（更详细版本）
+        const componentSVGs = {
+            'phospholipid-up': `<svg width="40" height="80" viewBox="0 0 40 80">
+                <circle cx="20" cy="14" r="10" fill="#64B5F6" opacity="0.95"/>
+                <path d="M15 26 C 12 36, 18 44, 15 52 C 12 58, 18 66, 15 72" stroke="#EF5350" stroke-width="3" fill="none"/>
+                <path d="M25 26 C 28 36, 22 44, 25 52 C 28 58, 22 66, 25 72" stroke="#EF5350" stroke-width="3" fill="none"/>
+            </svg>`,
+            'phospholipid-down': `<svg width="40" height="80" viewBox="0 0 40 80">
+                <circle cx="20" cy="66" r="10" fill="#64B5F6" opacity="0.95"/>
+                <path d="M15 56 C 12 46, 18 38, 15 30 C 12 24, 18 16, 15 10" stroke="#EF5350" stroke-width="3" fill="none"/>
+                <path d="M25 56 C 28 46, 22 38, 25 30 C 28 24, 22 16, 25 10" stroke="#EF5350" stroke-width="3" fill="none"/>
+            </svg>`,
+
+            'integral-protein': `<svg width="60" height="200" viewBox="0 0 60 200">
+                <path d="M15 24 C 10 60, 10 140, 15 176 L45 176 C 50 140, 50 60, 45 24 Z" fill="#9575CD" opacity="0.95"/>
+            </svg>`,
+
+            'peripheral-protein': `<svg width="70" height="50" viewBox="0 0 70 50">
+                <ellipse cx="35" cy="25" rx="28" ry="18" fill="#B39DDB" opacity="0.95"/>
+            </svg>`,
+
+            'glycoprotein': `<svg width="80" height="60" viewBox="0 0 80 60">
+                <rect x="30" y="28" width="20" height="27" rx="6" fill="#7CB342" opacity="0.9"/>
+                <!-- 主链六边形（相邻排列，无连线） -->
+                <polygon points="43,24 41.5,21.4 38.5,21.4 37,24 38.5,26.6 41.5,26.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,18 41.5,15.4 38.5,15.4 37,18 38.5,20.6 41.5,20.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,12 41.5,9.4 38.5,9.4 37,12 38.5,14.6 41.5,14.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,6 41.5,3.4 38.5,3.4 37,6 38.5,8.6 41.5,8.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <!-- 右侧支链六边形（≥6 个） -->
+                <polygon points="49,20.5 47.5,17.9 44.5,17.9 43,20.5 44.5,23.1 47.5,23.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="53,18.5 51.5,15.9 48.5,15.9 47,18.5 48.5,21.1 51.5,21.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="57,16.5 55.5,13.9 52.5,13.9 51,16.5 52.5,19.1 55.5,19.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="61,14.5 59.5,11.9 56.5,11.9 55,14.5 56.5,17.1 59.5,17.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="65,12.5 63.5,9.9 60.5,9.9 59,12.5 60.5,15.1 63.5,15.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="69,10.5 67.5,7.9 64.5,7.9 63,10.5 64.5,13.1 67.5,13.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="73,8.5 71.5,5.9 68.5,5.9 67,8.5 68.5,11.1 71.5,11.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="77,6.5 75.5,3.9 72.5,3.9 71,6.5 72.5,9.1 75.5,9.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+            </svg>`,
+
+            'glycolipid': `<svg width="80" height="60" viewBox="0 0 80 60">
+                <!-- 头部与两条疏水尾（波浪） -->
+                <circle cx="40" cy="35" r="6" fill="#FF7043"/>
+                <path d="M35 41 C 32 46, 38 50, 35 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                <path d="M45 41 C 48 46, 42 50, 45 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                <!-- 主链六边形（相邻排列） -->
+                <polygon points="43,25 41.5,22.4 38.5,22.4 37,25 38.5,27.6 41.5,27.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,19 41.5,16.4 38.5,16.4 37,19 38.5,21.6 41.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,13.5 41.5,10.9 38.5,10.9 37,13.5 38.5,16.1 41.5,16.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <!-- 右侧支链六边形（≥6 个） -->
+                <polygon points="49,21 47.5,18.4 44.5,18.4 43,21 44.5,23.6 47.5,23.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="53,19 51.5,16.4 48.5,16.4 47,19 48.5,21.6 51.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="57,17 55.5,14.4 52.5,14.4 51,17 52.5,19.6 55.5,19.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="61,15 59.5,12.4 56.5,12.4 55,15 56.5,17.6 59.5,17.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="65,13 63.5,10.4 60.5,10.4 59,13 60.5,15.6 63.5,15.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="69,11 67.5,8.4 64.5,8.4 63,11 64.5,13.6 67.5,13.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="73,9 71.5,6.4 68.5,6.4 67,9 68.5,11.6 71.5,11.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="77,7 75.5,4.4 72.5,4.4 71,7 72.5,9.6 75.5,9.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+            </svg>`,
+
+            'cholesterol': `<svg width="45" height="60" viewBox="0 0 45 60">
+                <polygon points="22.5,12 34,20 34,40 22.5,48 11,40 11,20" fill="#FFB300" opacity="0.95"/>
+                <circle cx="22.5" cy="30" r="6" fill="#F57C00"/>
+            </svg>`,
+
+            'channel-protein': `<svg width="60" height="200" viewBox="0 0 60 200">
+                <!-- 贯穿孔道使用遮罩实现镂空效果 -->
+                <defs>
+                    <mask id="channelMaskPlaced">
+                        <rect x="0" y="0" width="60" height="200" fill="white"/>
+                        <!-- 黑色区域为镂空通道（首尾贯穿） -->
+                        <rect x="22" y="0" width="16" height="200" rx="8" fill="black"/>
+                    </mask>
+                </defs>
+                <rect x="15" y="10" width="30" height="180" rx="14" fill="#9575CD" opacity="0.95" mask="url(#channelMaskPlaced)"/>
+            </svg>`,
+
+            'carrier-protein': `<svg width="60" height="200" viewBox="0 0 60 200">
+                <!-- 首尾贯穿的载体蛋白：外部主体更厚实 + 更窄的镂空通道 + 左右凹槽结合位点 -->
+                <defs>
+                    <mask id="carrierMaskPlaced">
+                        <rect x="0" y="0" width="60" height="200" fill="white"/>
+                        <!-- 更窄的贯穿通道（居中） -->
+                        <rect x="25" y="0" width="10" height="200" rx="6" fill="black"/>
+                        <!-- 左右侧壁各一个半圆凹槽作为结合位点（贴近通道） -->
+                        <circle cx="25" cy="100" r="6.5" fill="black"/>
+                        <circle cx="35" cy="100" r="6.5" fill="black"/>
+                    </mask>
+                </defs>
+                <!-- 外部主体更厚实（增宽） -->
+                <rect x="12" y="10" width="36" height="180" rx="16" fill="#7E57C2" opacity="0.95" mask="url(#carrierMaskPlaced)"/>
+            </svg>`,
+            'polysaccharide': `<svg width="80" height="120" viewBox="0 0 80 120">
+                <!-- 主链：纵向六边形（更长） -->
+                <polygon points="43,100 41.5,97.4 38.5,97.4 37,100 38.5,102.6 41.5,102.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="43,92 41.5,89.4 38.5,89.4 37,92 38.5,94.6 41.5,94.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="43,84 41.5,81.4 38.5,81.4 37,84 38.5,86.6 41.5,86.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="43,76 41.5,73.4 38.5,73.4 37,76 38.5,78.6 41.5,78.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="43,68 41.5,65.4 38.5,65.4 37,68 38.5,70.6 41.5,70.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="43,60 41.5,57.4 38.5,57.4 37,60 38.5,62.6 41.5,62.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="43,52 41.5,49.4 38.5,49.4 37,52 38.5,54.6 41.5,54.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <!-- 右侧较长支链：≥6 个六边形，斜向排列 -->
+                <polygon points="49,96.5 47.5,93.9 44.5,93.9 43,96.5 44.5,99.1 47.5,99.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="53,94.5 51.5,91.9 48.5,91.9 47,94.5 48.5,97.1 51.5,97.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="57,92.5 55.5,89.9 52.5,89.9 51,92.5 52.5,95.1 55.5,95.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="61,90.5 59.5,87.9 56.5,87.9 55,90.5 56.5,93.1 59.5,93.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="65,88.5 63.5,85.9 60.5,85.9 59,88.5 60.5,91.1 63.5,91.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="69,86.5 67.5,83.9 64.5,83.9 63,86.5 64.5,89.1 67.5,89.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="73,84.5 71.5,81.9 68.5,81.9 67,84.5 68.5,87.1 71.5,87.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+                <polygon points="77,82.5 75.5,79.9 72.5,79.9 71,82.5 72.5,85.1 75.5,85.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.2"/>
+            </svg>`,
+            'oligosaccharide': `<svg width="80" height="100" viewBox="0 0 80 100">
+                <!-- 主链：纵向较短（3 个） -->
+                <polygon points="43,72 41.5,69.4 38.5,69.4 37,72 38.5,74.6 41.5,74.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <polygon points="43,64 41.5,61.4 38.5,61.4 37,64 38.5,66.6 41.5,66.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <polygon points="43,56 41.5,53.4 38.5,53.4 37,56 38.5,58.6 41.5,58.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <polygon points="43,48 41.5,45.4 38.5,45.4 37,48 38.5,50.6 41.5,50.6" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <!-- 右侧短支链：3 个六边形 -->
+                <polygon points="49,68.5 47.5,65.9 44.5,65.9 43,68.5 44.5,71.1 47.5,71.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <polygon points="53,66.5 51.5,63.9 48.5,63.9 47,66.5 48.5,69.1 51.5,69.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <polygon points="57,64.5 55.5,61.9 52.5,61.9 51,64.5 52.5,67.1 55.5,67.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+                <polygon points="61,62.5 59.5,59.9 56.5,59.9 55,62.5 56.5,65.1 59.5,65.1" fill="#FFD54F" stroke="#FFA000" stroke-width="1.1"/>
+            </svg>`
+        };
+
+        // 初始化拖拽（左侧面板 -> 画布）
+        document.querySelectorAll('.component-item').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('click', () => selectItemForPlace(item));
+        });
+
+        canvas.addEventListener('dragover', handleDragOver);
+        canvas.addEventListener('drop', handleDrop);
+        canvas.addEventListener('dragleave', handleDragLeave);
+        canvas.addEventListener('click', handleCanvasClickToPlace);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSelection(); });
+        canvas.addEventListener('mousemove', (e) => {
+            const p = screenToContent(e.clientX, e.clientY);
+            updateStatus(p);
+        });
+
+        // 画布缩放（默认放大 2 倍；关闭手势缩放，可用按钮控制）
+        const ENABLE_GESTURE_ZOOM = false;
+        let zoomScale = 2;
+        const MIN_ZOOM = 0.5;
+        const MAX_ZOOM = 3;
+        let pinchStartDist = 0;
+        let pinchStartScale = 2;
+
+        // Studio、网格、吸附
+        let studioEnabled = false;
+        let gridEnabled = false;
+        let snapEnabled = false;
+        const GRID_SIZE = 10;
+
+        function setZoom(next, originX = null, originY = null) {
+            zoomScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+            if (originX != null && originY != null) {
+                content.style.transformOrigin = `${originX}px ${originY}px`;
+            }
+            content.style.transform = `scale(${zoomScale})`;
+            updateStatus();
         }
-      });
-    }
 
-    function resetQuestions() {
-      questions = [];
-      elQuestionsSection.classList.add('hidden');
-      elQuestionList.innerHTML = '';
-      elQuestionDetail.classList.add('hidden');
-      elImgWrap.classList.add('hidden');
-      elThumbs.classList.add('hidden');
-      selectedImageFile = null;
-      elBtnAnalyze.disabled = !apiKey || !selectedImageFile;
-    }
+        function distance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+        if (ENABLE_GESTURE_ZOOM) {
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    pinchStartDist = distance(e.touches);
+                    pinchStartScale = zoomScale;
+                }
+            }, { passive: false });
 
-    elBtnAnalyze.addEventListener('click', analyze);
-  </script>
+            canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const curDist = distance(e.touches);
+                    const factor = curDist / pinchStartDist;
+                    setZoom(pinchStartScale * factor);
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', () => { pinchStartDist = 0; });
+            canvas.addEventListener('touchcancel', () => { pinchStartDist = 0; });
+
+            canvas.addEventListener('wheel', (e) => {
+                if (!e.ctrlKey) return;
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const pointerX = (e.clientX - rect.left) / zoomScale;
+                const pointerY = (e.clientY - rect.top) / zoomScale;
+                const delta = -e.deltaY;
+                const factor = Math.exp(delta * 0.0015);
+                setZoom(zoomScale * factor, pointerX, pointerY);
+            }, { passive: false });
+        } else {
+            // 默认初始化为 2x 缩放
+            setZoom(zoomScale);
+        }
+
+        // 辅助：屏幕坐标 -> 内容坐标（考虑缩放与中心为原点）
+        function screenToContent(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const originX = canvas.clientWidth / 2;
+            const originY = canvas.clientHeight / 2;
+            const sx = clientX - rect.left;
+            const sy = clientY - rect.top;
+            const cx = (sx - originX) / zoomScale + originX;
+            const cy = (sy - originY) / zoomScale + originY;
+            return { x: cx, y: cy };
+        }
+
+        // 工具栏操作
+        function toggleStudio() {
+            studioEnabled = !studioEnabled;
+            document.getElementById('studioBtn')?.classList.toggle('active', studioEnabled);
+            canvas.classList.toggle('studio', studioEnabled);
+        }
+        function toggleGrid() {
+            gridEnabled = !gridEnabled;
+            document.getElementById('gridBtn')?.classList.toggle('active', gridEnabled);
+            gridOverlay.style.display = gridEnabled ? 'block' : 'none';
+            updateStatus();
+        }
+        function toggleSnap() {
+            snapEnabled = !snapEnabled;
+            document.getElementById('snapBtn')?.classList.toggle('active', snapEnabled);
+            updateStatus();
+        }
+        function zoomIn() { setZoom(Math.min(MAX_ZOOM, zoomScale * 1.15)); }
+        function zoomOut() { setZoom(Math.max(MIN_ZOOM, zoomScale / 1.15)); }
+        function resetView() { setZoom(2); }
+
+        function updateStatus(pt) {
+            if (pt) {
+                statusPos.textContent = `X: ${Math.round(pt.x)}，Y: ${Math.round(pt.y)}`;
+            }
+            statusZoom.textContent = `缩放: ${zoomScale.toFixed(2)}x`;
+            statusFlags.textContent = `网格: ${gridEnabled ? '开' : '关'} | 吸附: ${snapEnabled ? '开' : '关'}`;
+        }
+
+        function handleDragStart(e) {
+            draggedElement = e.target.closest('.component-item');
+            if (!draggedElement) return;
+            draggedElement.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'copy';
+            const data = {
+                type: draggedElement.dataset.type,
+                name: draggedElement.dataset.name
+            };
+            try {
+                e.dataTransfer.setData('application/json', JSON.stringify(data));
+            } catch (_) {
+                // 某些浏览器可能不允许自定义类型，回退到 text/plain
+                e.dataTransfer.setData('text/plain', JSON.stringify(data));
+            }
+        }
+
+        function handleDragEnd() {
+            if (draggedElement) draggedElement.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            canvas.classList.add('drag-over');
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        }
+
+        function handleDragLeave() {
+            canvas.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            canvas.classList.remove('drag-over');
+            let raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+            if (!raw) return;
+            let payload = {};
+            try { payload = JSON.parse(raw); } catch (_) { return; }
+            const p2 = screenToContent(e.clientX, e.clientY);
+            createPlacedComponent(payload.type, p2.x, p2.y);
+        }
+
+        // 选择组件以点击放置
+        function selectItemForPlace(item) {
+            clearSelection();
+            selectedType = item.dataset.type;
+            selectedItemEl = item;
+            item.classList.add('selected');
+            canvas.classList.add('placing');
+        }
+
+        function clearSelection() {
+            selectedType = null;
+            if (selectedItemEl) selectedItemEl.classList.remove('selected');
+            selectedItemEl = null;
+            canvas.classList.remove('placing');
+        }
+
+        // 点击画布放置
+        function handleCanvasClickToPlace(e) {
+            if (!selectedType) return;
+            // 仅在点击空白画布（容器或内容层）时放置
+            const valid = e.target === canvas || e.target === content;
+            if (!valid) return;
+            const p1 = screenToContent(e.clientX, e.clientY);
+            const x = p1.x;
+            const y = p1.y;
+            createPlacedComponent(selectedType, x, y);
+            // 如需单次放置，改为：clearSelection();
+        }
+
+        // 创建并放置组件到画布
+        function createPlacedComponent(type, x, y) {
+            if (!componentSVGs[type]) return;
+            const el = document.createElement('div');
+            el.className = 'placed-component';
+            el.dataset.type = type;
+            el.innerHTML = `${componentSVGs[type]}`;
+            content.appendChild(el);
+
+            // 初始位置（先放中点，再矫正）
+            const w = el.offsetWidth;
+            const h = el.offsetHeight;
+            const canvasRect = canvas.getBoundingClientRect(); // 用于边界范围
+            let left = x - w / 2;
+            let top = y - h / 2;
+            if (snapEnabled) {
+                left = Math.round(left / GRID_SIZE) * GRID_SIZE;
+                top = Math.round(top / GRID_SIZE) * GRID_SIZE;
+            }
+            // 约束在画布内
+            left = Math.max(0, Math.min(left, canvas.clientWidth - w));
+            top = Math.max(0, Math.min(top, canvas.clientHeight - h));
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+
+            // 根据开关控制动效
+            applyMotionToElement(el);
+
+            // 绑定交互
+            makeDraggableWithinCanvas(el);
+            bindTooltip(el);
+            el.addEventListener('dblclick', () => removePlacedComponent(el));
+
+            // 统计更新
+            incrementCount(type);
+        }
+
+        function removePlacedComponent(el) {
+            const type = el.dataset.type;
+            el.remove();
+            decrementCount(type);
+        }
+
+        // 保存/加载自定义示例
+        function saveCustomPreset() {
+            const items = Array.from(document.querySelectorAll('#canvasContent .placed-component')).map(el => {
+                const left = parseFloat(el.style.left) || 0;
+                const top = parseFloat(el.style.top) || 0;
+                const cx = left + el.offsetWidth / 2;
+                const cy = top + el.offsetHeight / 2;
+                return { type: el.dataset.type, cx, cy };
+            });
+            const payload = { version: 1, items };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+                alert('已保存当前组装为“我的示例”。');
+            } catch (err) {
+                console.error(err);
+                alert('保存失败：请检查浏览器是否允许本地存储。');
+            }
+        }
+
+        function loadCustomPreset() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) { alert('尚未保存“我的示例”。'); return; }
+            let data; try { data = JSON.parse(raw); } catch { alert('示例数据已损坏。'); return; }
+            if (!data || !Array.isArray(data.items)) { alert('示例数据格式不正确。'); return; }
+            clearCanvas();
+            data.items.forEach(it => {
+                if (!it || !it.type) return;
+                const cx = Number(it.cx) || 0;
+                const cy = Number(it.cy) || 0;
+                createPlacedComponent(it.type, cx, cy);
+            });
+        }
+
+        function makeDraggableWithinCanvas(el) {
+            let offsetX = 0, offsetY = 0;
+            function onMouseMove(moveEvent) {
+                const elW = el.offsetWidth;
+                const elH = el.offsetHeight;
+                const p = screenToContent(moveEvent.clientX, moveEvent.clientY);
+                let left = p.x - offsetX;
+                let top = p.y - offsetY;
+                if (snapEnabled) {
+                    left = Math.round(left / GRID_SIZE) * GRID_SIZE;
+                    top = Math.round(top / GRID_SIZE) * GRID_SIZE;
+                }
+                left = Math.max(0, Math.min(left, canvas.clientWidth - elW));
+                top = Math.max(0, Math.min(top, canvas.clientHeight - elH));
+                el.style.left = left + 'px';
+                el.style.top = top + 'px';
+            }
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                if (motionEnabled) applyMotionToElement(el);
+            }
+            el.addEventListener('mousedown', (downEvent) => {
+                if (downEvent.button !== 0) return;
+                const left0 = parseFloat(el.style.left) || 0;
+                const top0 = parseFloat(el.style.top) || 0;
+                const p = screenToContent(downEvent.clientX, downEvent.clientY);
+                offsetX = p.x - left0;
+                offsetY = p.y - top0;
+                // 拖动开始时隐藏提示
+                tooltip.style.display = 'none';
+                // 拖动过程中移除动效，避免干扰
+                clearMotionFromElement(el);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                downEvent.preventDefault();
+            });
+        }
+
+        // 运动控制函数
+        function applyMotionToElement(el) {
+            if (!motionEnabled) return;
+            clearMotionFromElement(el);
+            if (Math.random() > 0.5) el.classList.add('floating');
+            else el.classList.add('pulsing');
+        }
+        function clearMotionFromElement(el) {
+            el.classList.remove('floating');
+            el.classList.remove('pulsing');
+        }
+        function applyMotionToAll() {
+            document.querySelectorAll('#canvasContent .placed-component').forEach(applyMotionToElement);
+        }
+        function clearMotionFromAll() {
+            document.querySelectorAll('#canvasContent .placed-component').forEach(clearMotionFromElement);
+        }
+        function toggleMotion() {
+            motionEnabled = !motionEnabled;
+            const btn = document.getElementById('motionToggleBtn');
+            if (motionEnabled) {
+                btn.textContent = '停止运动';
+                btn.classList.add('active');
+                applyMotionToAll();
+            } else {
+                btn.textContent = '开启运动';
+                btn.classList.remove('active');
+                clearMotionFromAll();
+            }
+        }
+
+        function bindTooltip(el) {
+            const type = el.dataset.type;
+            const info = componentInfo[type] || { name: type, desc: '' };
+            function onEnter() { tooltip.style.display = 'block'; }
+            function onMove(e) {
+                const content = `<strong>${info.name}</strong><br><span style="opacity:.9">${info.desc}</span>`;
+                tooltip.innerHTML = content;
+                const padding = 12;
+                const rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left + padding;
+                let y = e.clientY - rect.top + padding;
+                // 保证不超出画布
+                const maxX = rect.width - tooltip.offsetWidth - 8;
+                const maxY = rect.height - tooltip.offsetHeight - 8;
+                tooltip.style.left = Math.min(x, maxX) + 'px';
+                tooltip.style.top = Math.min(y, maxY) + 'px';
+            }
+            function onLeave() { tooltip.style.display = 'none'; }
+            el.addEventListener('mouseenter', onEnter);
+            el.addEventListener('mousemove', onMove);
+            el.addEventListener('mouseleave', onLeave);
+        }
+
+        // 统计逻辑
+        function resetCounts() {
+            componentCounts = {};
+            Object.keys(typeToCounterId).forEach(t => componentCounts[t] = 0);
+            updateStats();
+        }
+
+        function incrementCount(type) {
+            if (!(type in componentCounts)) componentCounts[type] = 0;
+            componentCounts[type]++;
+            updateStats();
+        }
+
+        function decrementCount(type) {
+            if (!(type in componentCounts)) return;
+            componentCounts[type] = Math.max(0, componentCounts[type] - 1);
+            updateStats();
+        }
+
+        function updateStats() {
+            Object.entries(typeToCounterId).forEach(([type, id]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = componentCounts[type] || 0;
+            });
+        }
+
+        // 视图与背景渲染
+        let backgroundVisible = false;
+        function renderMembraneBackground() {
+            const bg = document.getElementById('membraneBackground');
+            const width = canvas.clientWidth || 1200;
+            const height = 200; // 固定背景层高度
+
+            if (currentView === 'side') {
+                // 侧视：上下两排头部；背景纯白
+                const heads = Math.max(12, Math.floor(width / 60));
+                const topY = 40, bottomY = 160;
+                const tailTop = 60, tailBottom = 140;
+                const spacing = width / (heads + 1);
+
+                let circlesTop = '';
+                let circlesBottom = '';
+                let tails = '';
+                for (let i = 1; i <= heads; i++) {
+                    const cx = Math.round(i * spacing);
+                    circlesTop += `<circle cx="${cx}" cy="${topY}" r="8" fill="#64B5F6" opacity="0.95"/>`;
+                    circlesBottom += `<circle cx="${cx}" cy="${bottomY}" r="8" fill="#64B5F6" opacity="0.95"/>`;
+                    // 波浪形疏水尾（红色）
+                    const path1 = `M ${cx-3} ${tailTop} C ${cx-6} ${tailTop+12}, ${cx} ${tailTop+24}, ${cx-3} ${tailTop+36} C ${cx-6} ${tailTop+44}, ${cx} ${tailTop+56}, ${cx-3} ${tailBottom}`;
+                    const path2 = `M ${cx+3} ${tailTop} C ${cx+6} ${tailTop+12}, ${cx} ${tailTop+24}, ${cx+3} ${tailTop+36} C ${cx+6} ${tailTop+44}, ${cx} ${tailTop+56}, ${cx+3} ${tailBottom}`;
+                    tails += `<path d="${path1}" stroke="#EF5350" stroke-width="2.5" fill="none" opacity="0.7"/>`;
+                    tails += `<path d="${path2}" stroke="#EF5350" stroke-width="2.5" fill="none" opacity="0.7"/>`;
+                }
+
+                bg.innerHTML = `
+                    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+                        <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>
+                        ${tails}
+                        ${circlesTop}
+                        ${circlesBottom}
+                    </svg>
+                `;
+            } else {
+                // 俯视：头部在两侧边缘的稠密分布；背景纯白
+                const cols = Math.max(16, Math.floor(width / 50));
+                const rows = 4;
+                const spacingX = width / (cols + 1);
+                const spacingY = height / (rows + 1);
+                let dots = '';
+                for (let r = 1; r <= rows; r++) {
+                    for (let c = 1; c <= cols; c++) {
+                        const cx = Math.round(c * spacingX);
+                        const cy = Math.round(r * spacingY);
+                        const color = r <= 2 ? '#2196F3' : '#FF5722';
+                        dots += `<circle cx="${cx}" cy="${cy}" r="6" fill="${color}" opacity="0.9"/>`;
+                    }
+                }
+                bg.innerHTML = `
+                    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+                        <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>
+                        ${dots}
+                    </svg>
+                `;
+            }
+            backgroundVisible = true;
+        }
+
+        // 取消切换视角功能：保留背景渲染方法以备将来需要，但不再提供切换入口
+
+        function clearCanvas() {
+            document.querySelectorAll('#membraneCanvas .placed-component').forEach(el => el.remove());
+            resetCounts();
+        }
+
+        function loadPreset() {
+            clearCanvas();
+            // 生成一组典型分布
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            const midY = height / 2;
+
+            // 两排磷脂（双分子层）更紧凑：数量进一步增加、左右边距更窄
+            const n = 36; // 再增加数量，进一步压缩水平间距
+            const marginX = Math.max(3, Math.floor(width * 0.01)); // 更小的左右边距
+            const usable = width - 2 * marginX;
+            const spacing = usable / (n - 1);
+            const deltaY = 45; // 上下层距离缩到 45
+
+            // 为三类跨膜蛋白预留空档，避免与磷脂重叠
+            const reservedXs = [width * 0.12, width * 0.50, width * 0.88];
+            const reservedRadius = 45; // 空档稍微缩小，整体更紧凑
+
+            for (let i = 0; i < n; i++) {
+                const x = marginX + i * spacing;
+                const nearReserved = reservedXs.some(rx => Math.abs(x - rx) < reservedRadius);
+                if (nearReserved) continue; // 在空档位置不放磷脂
+                // 上层：正置（头朝外，向上）
+                createPlacedComponent('phospholipid-up', x, midY - deltaY);
+                // 下层：倒置（头朝外，向下）
+                createPlacedComponent('phospholipid-down', x, midY + deltaY);
+            }
+
+            // 胆固醇（嵌入疏水区）更密一些
+            for (let i = 1; i < n - 1; i += 2) {
+                const x = marginX + i * spacing + (Math.random() * 10 - 5);
+                const nearReserved = reservedXs.some(rx => Math.abs(x - rx) < reservedRadius - 10);
+                if (nearReserved) continue;
+                createPlacedComponent('cholesterol', x, midY + (Math.random() * 8 - 4));
+            }
+
+            // 跨膜/通道/载体蛋白（跨越双层）尽可能分散（左/中/右），各自占据预留空档
+            createPlacedComponent('integral-protein', reservedXs[0], midY);
+            createPlacedComponent('channel-protein',  reservedXs[1], midY);
+            createPlacedComponent('carrier-protein',  reservedXs[2], midY);
+
+            // 外周蛋白（内外表面）分散在更远左右，且不与磷脂层重叠
+            createPlacedComponent('peripheral-protein', width * 0.08, midY - (deltaY + 60));
+            createPlacedComponent('peripheral-protein', width * 0.92, midY + (deltaY + 60));
+
+            // 糖类（外侧）分散：偏左/偏右，且明显在磷脂层之外
+            createPlacedComponent('glycoprotein', width * 0.28, midY - (deltaY + 90));
+            createPlacedComponent('glycolipid',  width * 0.72, midY - (deltaY + 92));
+            // 多糖/寡糖链（更外且分散）
+            createPlacedComponent('polysaccharide',  width * 0.18, midY - (deltaY + 110));
+            createPlacedComponent('oligosaccharide', width * 0.82, midY - (deltaY + 120));
+        }
+
+        // 初始渲染
+        resetCounts();
+        // 起始画板保持空白，不渲染背景
+        window.addEventListener('resize', () => { if (backgroundVisible) renderMembraneBackground(); });
+    </script>
 </body>
 </html>
-
